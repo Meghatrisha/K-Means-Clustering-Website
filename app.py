@@ -5,68 +5,41 @@ from sklearn.cluster import KMeans
 from sklearn.preprocessing import StandardScaler
 import matplotlib.pyplot as plt
 
-# --- Streamlit UI ---
-st.title("K-Means Clustering App")
-st.write("Upload a CSV dataset and choose the number of clusters to visualize K-Means clustering.")
+st.set_page_config(page_title="🎯 K-Means Playground", layout="wide")
+st.title("🎯 K-Means Clustering Playground")
+st.markdown("Upload a CSV file, pick features, and explore clusters interactively!")
 
-uploaded_file = st.file_uploader("Upload your CSV file", type=["csv"])
-
-if uploaded_file is not None:
-    df = pd.read_csv(uploaded_file)
-    st.write("### Preview of Dataset")
+file = st.sidebar.file_uploader("📁 Upload CSV", type=["csv"])
+if file:
+    df = pd.read_csv(file)
+    st.markdown("## 🔍 Dataset Preview")
     st.dataframe(df.head())
 
-    # Let user choose numeric columns only
-    numeric_cols = df.select_dtypes(include=np.number).columns.tolist()
-
-    if len(numeric_cols) < 2:
-        st.error("Dataset must contain at least 2 numeric columns for clustering.")
+    num_cols = df.select_dtypes(include=np.number).columns.tolist()
+    if len(num_cols) < 2:
+        st.error("🚫 Need at least 2 numeric columns.")
     else:
-        selected_features = st.multiselect(
-            "Select features for clustering (min 2 columns)", 
-            numeric_cols, 
-            default=numeric_cols[:2]
-        )
+        features = st.sidebar.multiselect("🧮 Select features", num_cols, default=num_cols[:2])
+        k = st.sidebar.slider("🔢 Clusters (k)", 2, 10, 3)
 
-        if len(selected_features) >= 2:
-            X = df[selected_features]
+        if len(features) >= 2:
+            X_scaled = StandardScaler().fit_transform(df[features])
+            df["Cluster"] = KMeans(n_clusters=k, random_state=42).fit_predict(X_scaled)
 
-            k = st.slider("Select Number of Clusters (k)", min_value=2, max_value=10, value=3)
-
-            # Scale data
-            scaler = StandardScaler()
-            X_scaled = scaler.fit_transform(X)
-
-            # KMeans model
-            kmeans = KMeans(n_clusters=k, random_state=42)
-            clusters = kmeans.fit_predict(X_scaled)
-
-            df["Cluster"] = clusters
-            st.write("### Clustered Data")
+            st.markdown("## 📊 Clustered Data")
             st.dataframe(df)
 
-            # Plot clusters (first 2 features)
+            st.markdown("## 🎨 Cluster Plot")
             fig, ax = plt.subplots()
-            scatter = ax.scatter(
-                X_scaled[:, 0],
-                X_scaled[:, 1],
-                c=clusters
-            )
-
-            ax.set_xlabel(selected_features[0])
-            ax.set_ylabel(selected_features[1])
-            ax.set_title("K-Means Clustering Visualization")
+            ax.scatter(X_scaled[:, 0], X_scaled[:, 1], c=df["Cluster"], cmap="rainbow", s=80, edgecolor="black")
+            ax.set_xlabel(features[0])
+            ax.set_ylabel(features[1])
+            ax.set_title("✨ K-Means Clustering")
             st.pyplot(fig)
 
-            # Download clustered data
-            csv = df.to_csv(index=False).encode("utf-8")
-            st.download_button(
-                label="Download Clustered Data",
-                data=csv,
-                file_name="clustered_data.csv",
-                mime="text/csv"
-            )
+            st.markdown("## 💾 Download Results")
+            st.download_button("📥 Download CSV", df.to_csv(index=False).encode("utf-8"), "clustered_data.csv", "text/csv")
         else:
-            st.warning("Please select at least 2 numeric features for clustering.")
+            st.warning("⚠️ Select at least 2 features.")
 else:
-    st.info("⬆️ Upload a CSV file to begin.")
+    st.info("⬅️ Upload a CSV file from the sidebar to begin.")
